@@ -8,6 +8,7 @@
 
 package com.atomikos.datasource.xa.jdbc;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 
 import javax.sql.XAConnection;
@@ -16,6 +17,8 @@ import javax.transaction.xa.XAResource;
 
 import com.atomikos.datasource.ResourceException;
 import com.atomikos.datasource.xa.XATransactionalResource;
+import com.atomikos.logging.Logger;
+import com.atomikos.logging.LoggerFactory;
 import com.atomikos.util.Assert;
 
 /**
@@ -26,6 +29,8 @@ import com.atomikos.util.Assert;
 
 public class JdbcTransactionalResource extends XATransactionalResource
 {
+    private static final Logger LOGGER = LoggerFactory.createLogger(JdbcTransactionalResource.class);
+
     private XADataSource xaDataSource;
     private XAConnection xaConnection;
     private String user; // null if not set
@@ -176,6 +181,31 @@ public class JdbcTransactionalResource extends XATransactionalResource
         return conn;
     }
 
+    @Override
+    protected boolean needsRefresh()
+    {
+       if(xaConnection==null){
+          return true;
+       }
 
+       try
+       {
+          //
+          Connection connection = xaConnection.getConnection();
+          if(connection==null){
+             return true;
+          }
 
+          if(!connection.isValid(10)){
+             return false;
+          }
+       }
+       catch (SQLException e)
+       {
+          LOGGER.logWarning(String.format("Invalid jdbc connection, needs refresh (error: %s)", e.getMessage()));
+          return true;
+       }
+
+       return super.needsRefresh();
+    }
 }
